@@ -1,6 +1,6 @@
 *.class
 *.dex
-build_temp/
+build_temp*
 .gradle/
 build/
 local.properties

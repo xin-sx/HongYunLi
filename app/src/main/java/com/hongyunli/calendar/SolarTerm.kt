@@ -2,11 +2,19 @@ package com.hongyunli.calendar
 
 import java.util.Calendar
 import java.util.GregorianCalendar
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 
 /**
  * 二十四节气计算工具类
  */
 object SolarTerm {
+
+    data class SolarTermData(
+        val name: String,
+        val date: LocalDate
+    )
 
     class SolarTermInfo(
         val name: String,
@@ -81,5 +89,38 @@ object SolarTerm {
         }
 
         return SolarTermInfo(name = "小寒", isCurrent = false, daysUntil = 0)
+    }
+
+    // 获取下一个节气（用于悬浮窗）
+    fun getNextSolarTerm(date: LocalDate): SolarTermData? {
+        val year = date.year
+        val allTerms = getAllSolarTermsForYear(year)
+        
+        for (term in allTerms) {
+            if (term.date.isAfter(date) || term.date.isEqual(date)) {
+                return term
+            }
+        }
+        
+        // 如果今年没有更多节气，返回明年的第一个
+        val nextYearTerms = getAllSolarTermsForYear(year + 1)
+        return nextYearTerms.firstOrNull()
+    }
+
+    // 计算距离下一个节气的天数
+    fun getDaysUntilNextSolarTerm(date: LocalDate): Int {
+        val nextTerm = getNextSolarTerm(date) ?: return 0
+        return ChronoUnit.DAYS.between(date, nextTerm.date).toInt()
+    }
+
+    // 获取指定年份的所有节气
+    private fun getAllSolarTermsForYear(year: Int): List<SolarTermData> {
+        val result = mutableListOf<SolarTermData>()
+        for (i in 0 until 24) {
+            val month = i / 2 + 1
+            val day = getSolarTermDay(year, i)
+            result.add(SolarTermData(termNames[i], LocalDate.of(year, month, day)))
+        }
+        return result
     }
 }

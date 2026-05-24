@@ -60,7 +60,12 @@ object LunarCalendar {
         val lunarMonthName: String,
         val lunarDayName: String,
         val zodiac: String
-    )
+    ) {
+        val monthChinese: String
+            get() = lunarMonthName.replace("闰", "")
+        val dayChinese: String
+            get() = lunarDayName
+    }
 
     // 返回农历1900年1月1日到指定公历日期的天数差
     private fun daysBetweenSolarAndLunarBase(year: Int, month: Int, day: Int): Int {

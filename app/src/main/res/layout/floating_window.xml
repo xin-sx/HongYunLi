@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:background="@drawable/floating_bg">
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <!-- 标题栏（可拖动） -->
+        <LinearLayout
+            android:id="@+id/fw_header"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="#D32F2F"
+            android:padding="8dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="鸿运历"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <ImageButton
+                android:id="@+id/fw_minimize"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:src="@android:drawable/ic_menu_zoom"
+                android:background="@android:color/transparent"
+                android:contentDescription="最小化" />
+
+            <ImageButton
+                android:id="@+id/fw_close"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:layout_marginStart="4dp"
+                android:src="@android:drawable/ic_menu_close_clear_cancel"
+                android:background="@android:color/transparent"
+                android:contentDescription="关闭" />
+        </LinearLayout>
+
+        <!-- 内容区域 -->
+        <LinearLayout
+            android:id="@+id/fw_content"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#FFFFFF"
+            android:padding="12dp">
+
+            <!-- 时间 -->
+            <TextView
+                android:id="@+id/fw_time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:text="12:00"
+                android:textSize="36sp"
+                android:textColor="#212121"
+                android:textStyle="bold" />
+
+            <!-- 公历日期 -->
+            <TextView
+                android:id="@+id/fw_date"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="4dp"
+                android:text="5月24日 周六"
+                android:textSize="14sp"
+                android:textColor="#757575" />
+
+            <!-- 农历 -->
+            <TextView
+                android:id="@+id/fw_lunar"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="8dp"
+                android:text="四月初八"
+                android:textSize="16sp"
+                android:textColor="#C62828"
+                android:textStyle="bold" />
+
+            <!-- 节气倒计时 -->
+            <TextView
+                android:id="@+id/fw_solar_term"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="4dp"
+                android:text="芒种 还有12天"
+                android:textSize="12sp"
+                android:textColor="#1565C0" />
+
+        </LinearLayout>
+
+        <!-- 缩放手柄 -->
+        <View
+            android:id="@+id/fw_resize_handle"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_gravity="end|bottom"
+            android:layout_marginTop="-24dp"
+            android:background="@drawable/resize_handle" />
+
+    </LinearLayout>
+
+</FrameLayout>
