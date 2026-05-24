@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">鸿运历</string>
+    <string name="loading">加载中...</string>
+    <string name="weather_fetch_failed">天气获取失败</string>
+</resources>

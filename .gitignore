@@ -1,0 +1,9 @@
+*.class
+*.dex
+build_temp/
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+*.keystore

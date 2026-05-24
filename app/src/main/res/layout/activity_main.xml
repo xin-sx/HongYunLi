@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/bg_warm"
+    android:gravity="center_horizontal"
+    android:padding="16dp">
+
+    <!-- 顶部红色装饰条 -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="6dp"
+        android:background="@color/red_primary" />
+
+    <Space
+        android:layout_width="match_parent"
+        android:layout_height="16dp" />
+
+    <!-- 实时时钟 -->
+    <TextView
+        android:id="@+id/tvClock"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="00:00"
+        android:textSize="72sp"
+        android:textColor="@color/red_primary"
+        android:textStyle="bold"
+        android:fontFamily="monospace" />
+
+    <!-- 公历日期 + 星期 -->
+    <TextView
+        android:id="@+id/tvSolarDate"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="2024年1月1日 星期一"
+        android:textSize="20sp"
+        android:textColor="@color/text_dark" />
+
+    <View
+        android:layout_width="200dp"
+        android:layout_height="1dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="16dp"
+        android:background="@color/divider" />
+
+    <!-- 农历日期 -->
+    <TextView
+        android:id="@+id/tvLunarDate"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="农历甲辰年 正月初一"
+        android:textSize="22sp"
+        android:textColor="@color/gold_dark"
+        android:textStyle="bold" />
+
+    <!-- 天干地支 + 生肖 -->
+    <TextView
+        android:id="@+id/tvGanZhi"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="甲辰年（龙）"
+        android:textSize="18sp"
+        android:textColor="@color/text_secondary" />
+
+    <View
+        android:layout_width="200dp"
+        android:layout_height="1dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="16dp"
+        android:background="@color/divider" />
+
+    <!-- 二十四节气 -->
+    <TextView
+        android:id="@+id/tvSolarTerm"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="小寒"
+        android:textSize="24sp"
+        android:textColor="@color/red_primary"
+        android:textStyle="bold" />
+
+    <!-- 节气倒计时 -->
+    <TextView
+        android:id="@+id/tvSolarTermCountdown"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="距今还有 15 天"
+        android:textSize="16sp"
+        android:textColor="@color/text_secondary" />
+
+    <View
+        android:layout_width="200dp"
+        android:layout_height="1dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="16dp"
+        android:background="@color/divider" />
+
+    <!-- 天气温度 -->
+    <TextView
+        android:id="@+id/tvWeather"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="天气加载中..."
+        android:textSize="20sp"
+        android:textColor="@color/text_dark" />
+
+    <Space
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <!-- 底部装饰 -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:text="鸿运历"
+        android:textSize="14sp"
+        android:textColor="@color/text_secondary" />
+
+    <!-- 底部红色装饰条 -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="6dp"
+        android:background="@color/red_primary" />
+
+</LinearLayout>
