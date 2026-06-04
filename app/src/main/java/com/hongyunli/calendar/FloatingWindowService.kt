@@ -19,66 +19,103 @@ import java.time.LocalDateTime
 
 class FloatingWindowService : Service() {
 
-    private lateinit var windowManager: WindowManager
+    private var windowManager: WindowManager? = null
     private var floatingView: View? = null
     private var params: WindowManager.LayoutParams? = null
-    
+
     private var initialX = 0
     private var initialY = 0
     private var initialTouchX = 0f
     private var initialTouchY = 0f
-    
+
     private val handler = Handler(Looper.getMainLooper())
-    private lateinit var tvTime: TextView
-    private lateinit var tvDate: TextView
-    private lateinit var tvLunar: TextView
-    private lateinit var tvSolarTerm: TextView
-    
+    private var tvTime: TextView? = null
+    private var tvDate: TextView? = null
+    private var tvLunar: TextView? = null
+    private var tvSolarTerm: TextView? = null
+
     private var isMinimized = false
     private var defaultWidth = 0
     private var defaultHeight = 0
     private var screenWidth = 0
     private var screenHeight = 0
 
+    private var updateRunnable: Runnable? = null
+
     override fun onBind(intent: Intent?): IBinder? = null
 
+    /**
+     * 修复根因3: 不在 onCreate 中调用 startForeground
+     * 所有初始化移到 onStartCommand
+     */
     override fun onCreate() {
         super.onCreate()
-        windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
-        createNotificationChannel()
-        startForeground(NOTIFICATION_ID, createNotification())
-        createFloatingWindow()
     }
 
     /**
-     * 修复8: 通知渠道适配澎湃OS 3.0
+     * 修复根因3: 在 onStartCommand 中立即调用 startForeground
+     * 必须在 5 秒内完成
      */
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "悬浮窗日历服务",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "鸿运历悬浮窗日历前台服务，显示实时时间、农历和节气信息"
-                setShowBadge(false)
-                enableVibration(false)
-                enableLights(false)
-                setSound(null, null)
-                // 修复8: 澎湃OS 3.0 锁屏不显示通知
-                lockscreenVisibility = Notification.VISIBILITY_SECRET
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // 1. 先创建通知渠道（如果不存在）
+        createNotificationChannelIfNeeded()
+
+        // 2. 立即启动前台服务（必须在5秒内）
+        val notification = createNotification()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(NOTIFICATION_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
+
+        // 3. 延迟创建悬浮窗（避免阻塞 startForeground）
+        handler.post {
+            try {
+                createFloatingWindow()
+            } catch (e: Exception) {
+                e.printStackTrace()
+                // 悬浮窗创建失败，停止服务
+                stopSelf()
             }
-            val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(channel)
+        }
+
+        return START_STICKY
+    }
+
+    /**
+     * 修复根因1+2: 通知渠道创建（独立方法，避免异常）
+     */
+    private fun createNotificationChannelIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                val manager = getSystemService(NotificationManager::class.java)
+                if (manager.getNotificationChannel(CHANNEL_ID) == null) {
+                    val channel = NotificationChannel(
+                        CHANNEL_ID,
+                        "悬浮窗日历服务",
+                        NotificationManager.IMPORTANCE_LOW
+                    ).apply {
+                        description = "鸿运历悬浮窗日历前台服务"
+                        setShowBadge(false)
+                        enableVibration(false)
+                        enableLights(false)
+                        setSound(null, null)
+                    }
+                    manager.createNotificationChannel(channel)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 
     /**
-     * 修复8: 前台服务通知适配 Android 14+ / 澎湃OS 3.0
+     * 创建前台服务通知
      */
     private fun createNotification(): Notification {
-        val intent = Intent(this, MainActivity::class.java)
-        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        val intent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
         val pendingIntent = PendingIntent.getActivity(
             this, 0, intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
@@ -98,24 +135,21 @@ class FloatingWindowService : Service() {
                 .bigText("鸿运历悬浮窗日历正在运行\n点击可返回主界面"))
         }
 
-        // 修复8: Android 14+ 设置前台服务类型
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            builder.setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
-        }
-
         return builder.build()
     }
 
     /**
-     * 修复3+4: 悬浮窗创建适配澎湃OS 3.0
-     * - 使用 DisplayMetrics 替代废弃的 defaultDisplay
-     * - 添加 FLAG_NOT_TOUCH_MODAL 避免拦截所有触摸
+     * 修复根因2: 使用 Application Context 创建 LayoutInflater
+     * 避免 Service Context 没有 Theme 的问题
      */
     private fun createFloatingWindow() {
-        val inflater = LayoutInflater.from(this)
+        windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+
+        // 修复根因2: 使用 applicationContext 创建 LayoutInflater
+        val inflater = LayoutInflater.from(applicationContext)
         floatingView = inflater.inflate(R.layout.floating_window, null)
 
-        // 修复3: 使用 DisplayMetrics 替代废弃的 defaultDisplay
+        // 获取屏幕尺寸
         val metrics = DisplayMetrics()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             val display = this.display
@@ -126,23 +160,23 @@ class FloatingWindowService : Service() {
                 screenHeight = realMetrics.heightPixels
             } else {
                 @Suppress("DEPRECATION")
-                windowManager.defaultDisplay.getMetrics(metrics)
+                windowManager?.defaultDisplay?.getMetrics(metrics)
                 screenWidth = metrics.widthPixels
                 screenHeight = metrics.heightPixels
             }
         } else {
             @Suppress("DEPRECATION")
-            windowManager.defaultDisplay.getMetrics(metrics)
+            windowManager?.defaultDisplay?.getMetrics(metrics)
             screenWidth = metrics.widthPixels
             screenHeight = metrics.heightPixels
         }
-        
+
         defaultWidth = (screenWidth * 0.7).toInt()
         defaultHeight = WindowManager.LayoutParams.WRAP_CONTENT
 
-        val windowType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) 
+        val windowType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-        else 
+        else
             @Suppress("DEPRECATION")
             WindowManager.LayoutParams.TYPE_PHONE
 
@@ -150,7 +184,6 @@ class FloatingWindowService : Service() {
             defaultWidth,
             defaultHeight,
             windowType,
-            // 修复4: 添加 FLAG_NOT_TOUCH_MODAL，避免拦截所有触摸事件
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
             WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
             WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
@@ -161,26 +194,27 @@ class FloatingWindowService : Service() {
             y = 100
         }
 
-        tvTime = floatingView!!.findViewById(R.id.fw_time)
-        tvDate = floatingView!!.findViewById(R.id.fw_date)
-        tvLunar = floatingView!!.findViewById(R.id.fw_lunar)
-        tvSolarTerm = floatingView!!.findViewById(R.id.fw_solar_term)
-        
-        val btnClose = floatingView!!.findViewById<ImageButton>(R.id.fw_close)
-        val btnMinimize = floatingView!!.findViewById<ImageButton>(R.id.fw_minimize)
-        val resizeHandle = floatingView!!.findViewById<View>(R.id.fw_resize_handle)
-        val header = floatingView!!.findViewById<View>(R.id.fw_header)
+        // 初始化视图
+        tvTime = floatingView?.findViewById(R.id.fw_time)
+        tvDate = floatingView?.findViewById(R.id.fw_date)
+        tvLunar = floatingView?.findViewById(R.id.fw_lunar)
+        tvSolarTerm = floatingView?.findViewById(R.id.fw_solar_term)
 
-        btnClose.setOnClickListener {
+        val btnClose = floatingView?.findViewById<ImageButton>(R.id.fw_close)
+        val btnMinimize = floatingView?.findViewById<ImageButton>(R.id.fw_minimize)
+        val resizeHandle = floatingView?.findViewById<View>(R.id.fw_resize_handle)
+        val header = floatingView?.findViewById<View>(R.id.fw_header)
+
+        btnClose?.setOnClickListener {
             stopSelf()
         }
 
-        btnMinimize.setOnClickListener {
+        btnMinimize?.setOnClickListener {
             toggleMinimize()
         }
 
         // 拖动功能
-        header.setOnTouchListener(object : View.OnTouchListener {
+        header?.setOnTouchListener(object : View.OnTouchListener {
             override fun onTouch(v: View?, event: MotionEvent): Boolean {
                 when (event.action) {
                     MotionEvent.ACTION_DOWN -> {
@@ -193,10 +227,9 @@ class FloatingWindowService : Service() {
                     MotionEvent.ACTION_MOVE -> {
                         params!!.x = initialX + (event.rawX - initialTouchX).toInt()
                         params!!.y = initialY + (event.rawY - initialTouchY).toInt()
-                        // 限制不超出屏幕
                         params!!.x = params!!.x.coerceIn(0, screenWidth - 100)
                         params!!.y = params!!.y.coerceIn(0, screenHeight - 100)
-                        windowManager.updateViewLayout(floatingView, params)
+                        windowManager?.updateViewLayout(floatingView, params)
                         return true
                     }
                 }
@@ -205,7 +238,7 @@ class FloatingWindowService : Service() {
         })
 
         // 缩放功能
-        resizeHandle.setOnTouchListener(object : View.OnTouchListener {
+        resizeHandle?.setOnTouchListener(object : View.OnTouchListener {
             override fun onTouch(v: View?, event: MotionEvent): Boolean {
                 when (event.action) {
                     MotionEvent.ACTION_DOWN -> {
@@ -218,10 +251,9 @@ class FloatingWindowService : Service() {
                     MotionEvent.ACTION_MOVE -> {
                         val newWidth = defaultWidth + (event.rawX - initialTouchX).toInt()
                         val newHeight = defaultHeight + (event.rawY - initialTouchY).toInt()
-                        
                         params!!.width = newWidth.coerceIn(250, screenWidth)
                         params!!.height = newHeight.coerceIn(150, screenHeight)
-                        windowManager.updateViewLayout(floatingView, params)
+                        windowManager?.updateViewLayout(floatingView, params)
                         return true
                     }
                 }
@@ -230,11 +262,11 @@ class FloatingWindowService : Service() {
         })
 
         try {
-            windowManager.addView(floatingView, params)
+            windowManager?.addView(floatingView, params)
         } catch (e: Exception) {
             e.printStackTrace()
-            // 澎湃OS 3.0 可能因为权限拒绝添加
             stopSelf()
+            return
         }
 
         startUpdateTimer()
@@ -242,29 +274,31 @@ class FloatingWindowService : Service() {
 
     private fun toggleMinimize() {
         isMinimized = !isMinimized
-        val content = floatingView!!.findViewById<LinearLayout>(R.id.fw_content)
-        val resizeHandle = floatingView!!.findViewById<View>(R.id.fw_resize_handle)
-        
+        val content = floatingView?.findViewById<LinearLayout>(R.id.fw_content)
+        val resizeHandle = floatingView?.findViewById<View>(R.id.fw_resize_handle)
+
         if (isMinimized) {
-            content.visibility = View.GONE
-            resizeHandle.visibility = View.GONE
-            params!!.width = WindowManager.LayoutParams.WRAP_CONTENT
-            params!!.height = WindowManager.LayoutParams.WRAP_CONTENT
+            content?.visibility = View.GONE
+            resizeHandle?.visibility = View.GONE
+            params?.width = WindowManager.LayoutParams.WRAP_CONTENT
+            params?.height = WindowManager.LayoutParams.WRAP_CONTENT
         } else {
-            content.visibility = View.VISIBLE
-            resizeHandle.visibility = View.VISIBLE
-            params!!.width = defaultWidth
-            params!!.height = WindowManager.LayoutParams.WRAP_CONTENT
+            content?.visibility = View.VISIBLE
+            resizeHandle?.visibility = View.VISIBLE
+            params?.width = defaultWidth
+            params?.height = WindowManager.LayoutParams.WRAP_CONTENT
         }
         try {
-            windowManager.updateViewLayout(floatingView, params)
+            if (floatingView != null && params != null) {
+                windowManager?.updateViewLayout(floatingView, params)
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }
     }
 
     private fun startUpdateTimer() {
-        val runnable = object : Runnable {
+        updateRunnable = object : Runnable {
             override fun run() {
                 if (floatingView != null) {
                     updateContent()
@@ -272,39 +306,39 @@ class FloatingWindowService : Service() {
                 }
             }
         }
-        handler.post(runnable)
+        updateRunnable?.let { handler.post(it) }
     }
 
     private fun updateContent() {
         try {
             val now = LocalDateTime.now()
-            
-            tvTime.text = String.format("%02d:%02d", now.hour, now.minute)
-            
+
+            tvTime?.text = String.format("%02d:%02d", now.hour, now.minute)
+
             val weekDays = arrayOf("日", "一", "二", "三", "四", "五", "六")
-            tvDate.text = "${now.monthValue}月${now.dayOfMonth}日 周${weekDays[now.dayOfWeek.value % 7]}"
-            
+            tvDate?.text = "${now.monthValue}月${now.dayOfMonth}日 周${weekDays[now.dayOfWeek.value % 7]}"
+
             val lunarDate = LunarCalendar.solarToLunar(now.year, now.monthValue, now.dayOfMonth)
-            tvLunar.text = "${lunarDate.monthChinese}月${lunarDate.dayChinese}"
-            
+            tvLunar?.text = "${lunarDate.monthChinese}月${lunarDate.dayChinese}"
+
             val today = java.time.LocalDate.now()
             val nextTerm = SolarTerm.getNextSolarTerm(today)
             val daysUntil = SolarTerm.getDaysUntilNextSolarTerm(today)
             if (nextTerm != null) {
-                tvSolarTerm.text = "${nextTerm.name} 还有${daysUntil}天"
+                tvSolarTerm?.text = "${nextTerm.name} 还有${daysUntil}天"
             }
         } catch (e: Exception) {
-            // 防止更新时崩溃导致服务终止
             e.printStackTrace()
         }
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        updateRunnable?.let { handler.removeCallbacks(it) }
         handler.removeCallbacksAndMessages(null)
         if (floatingView != null) {
             try {
-                windowManager.removeView(floatingView)
+                windowManager?.removeView(floatingView)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
