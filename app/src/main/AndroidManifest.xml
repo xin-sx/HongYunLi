@@ -13,11 +13,14 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     
-    <!-- 澎湃OS 后台启动权限 -->
+    <!-- 后台启动权限 -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     
-    <!-- 澎湃OS 自启动权限 -->
+    <!-- 自启动权限 -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    
+    <!-- 澎湃OS 3.0 震动权限（通知渠道需要） -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="true"
@@ -37,17 +40,22 @@
             </intent-filter>
         </activity>
 
+        <!-- 修复6: specialUse前台服务必须声明property -->
         <service
             android:name=".FloatingWindowService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="specialUse" />
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="calendar_floating_widget" />
+        </service>
             
-        <!-- 澎湃OS 开机自启动接收器 -->
+        <!-- 修复7: BootReceiver 不需要 exported=true -->
         <receiver
             android:name=".BootReceiver"
             android:enabled="true"
-            android:exported="true">
+            android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>

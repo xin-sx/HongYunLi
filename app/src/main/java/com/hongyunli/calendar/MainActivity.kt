@@ -29,6 +29,10 @@ class MainActivity : Activity() {
     private val handler = Handler(Looper.getMainLooper())
     private val weekDays = arrayOf("星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六")
 
+    // 修复1: 标记是否正在等待权限授权结果，防止 onResume 死循环
+    private var waitingForPermissionResult = false
+    private var hasStartedFloating = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -47,15 +51,11 @@ class MainActivity : Activity() {
         fetchWeather()
         showSystemInfo()
 
-        // 悬浮窗按钮
         btnFloating.setOnClickListener {
             checkAndStartFloatingWindow()
         }
     }
 
-    /**
-     * 显示系统信息（适配澎湃OS检测）
-     */
     private fun showSystemInfo() {
         val info = StringBuilder()
         if (HyperOSHelper.isHyperOS()) {
@@ -71,28 +71,36 @@ class MainActivity : Activity() {
     }
 
     /**
-     * 检查并启动悬浮窗
-     * 针对澎湃OS做了特殊权限处理
+     * 修复1+2: 重写悬浮窗启动逻辑
+     * - 先检查悬浮窗权限
+     * - 再检查澎湃OS后台权限（不阻塞，只提示）
+     * - 使用状态标记防止 onResume 死循环
      */
     private fun checkAndStartFloatingWindow() {
+        if (hasStartedFloating) return
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (!HyperOSHelper.canDrawOverlays(this)) {
-                // 使用澎湃OS适配的权限请求
+                // 需要悬浮窗权限
+                waitingForPermissionResult = true
                 HyperOSHelper.requestOverlayPermission(this)
-                Toast.makeText(this, "请授予悬浮窗权限", Toast.LENGTH_LONG).show()
-            } else {
-                // 澎湃OS 3.0 额外检查后台启动权限
-                if (HyperOSHelper.isHyperOS3OrAbove()) {
-                    HyperOSHelper.requestBackgroundStartPermission(this)
-                }
-                startFloatingService()
+                Toast.makeText(this, "请授予悬浮窗权限后返回", Toast.LENGTH_LONG).show()
+                return
             }
-        } else {
-            startFloatingService()
         }
+
+        // 修复2: 澎湃OS后台权限只提示，不阻塞启动
+        if (HyperOSHelper.isHyperOS3OrAbove()) {
+            Toast.makeText(this, "建议在设置中开启后台弹出界面权限", Toast.LENGTH_SHORT).show()
+        }
+
+        startFloatingService()
     }
 
     private fun startFloatingService() {
+        if (hasStartedFloating) return
+        hasStartedFloating = true
+
         val intent = Intent(this, FloatingWindowService::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(intent)
@@ -103,12 +111,22 @@ class MainActivity : Activity() {
         finish()
     }
 
+    /**
+     * 修复1: onResume 中使用状态标记防止死循环
+     * 只在从权限设置页面返回时检查一次
+     */
     override fun onResume() {
         super.onResume()
-        // 从权限设置页面返回后检查权限
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (HyperOSHelper.canDrawOverlays(this)) {
-                startFloatingService()
+        if (waitingForPermissionResult) {
+            waitingForPermissionResult = false
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                if (HyperOSHelper.canDrawOverlays(this)) {
+                    // 权限已授予，启动悬浮窗
+                    startFloatingService()
+                } else {
+                    // 权限仍未授予，提示用户
+                    Toast.makeText(this, "未获得悬浮窗权限，无法启动", Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }
@@ -122,28 +140,21 @@ class MainActivity : Activity() {
         val minute = now.get(Calendar.MINUTE)
         val weekDay = now.get(Calendar.DAY_OF_WEEK)
 
-        // 时钟
         tvClock.text = String.format("%02d:%02d", hour, minute)
-
-        // 公历日期
         tvSolarDate.text = "${year}年${month}月${day}日 ${weekDays[weekDay - 1]}"
 
-        // 农历
         val lunar = LunarCalendar.solarToLunar(year, month, day)
         tvLunarDate.text = "农历${lunar.ganZhiYear}年 ${lunar.lunarMonthName}${lunar.lunarDayName}"
         tvGanZhi.text = "${lunar.ganZhiYear}年（${lunar.zodiac}）"
 
-        // 节气
         val solarTermInfo = SolarTerm.getCurrentOrNextSolarTerm(year, month, day)
         tvSolarTerm.text = solarTermInfo.name
         if (solarTermInfo.isCurrent) {
             tvSolarTermCountdown.text = "今日节气"
         } else {
-            val daysLeft = solarTermInfo.daysUntil
-            tvSolarTermCountdown.text = "距今还有 ${daysLeft} 天"
+            tvSolarTermCountdown.text = "距今还有 ${solarTermInfo.daysUntil} 天"
         }
 
-        // 每秒更新
         handler.postDelayed({ updateDateTime() }, 1000)
     }
 
