@@ -108,6 +108,16 @@
         android:textSize="20sp"
         android:textColor="@color/text_dark" />
 
+    <!-- 系统信息（澎湃OS检测） -->
+    <TextView
+        android:id="@+id/tvSystemInfo"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="检测系统中..."
+        android:textSize="12sp"
+        android:textColor="@color/text_secondary" />
+
     <!-- 启动悬浮窗按钮 -->
     <Button
         android:id="@+id/btnFloating"

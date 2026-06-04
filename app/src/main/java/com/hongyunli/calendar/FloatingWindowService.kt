@@ -16,7 +16,6 @@ import android.os.Looper
 import android.view.*
 import android.widget.*
 import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
 
 class FloatingWindowService : Service() {
 
@@ -49,18 +48,30 @@ class FloatingWindowService : Service() {
         createFloatingWindow()
     }
 
+    /**
+     * 创建通知渠道 - 适配澎湃OS通知管理
+     */
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 "floating_service",
                 "悬浮窗服务",
                 NotificationManager.IMPORTANCE_LOW
-            )
+            ).apply {
+                description = "鸿运历悬浮窗前台服务"
+                setShowBadge(false)
+                // 澎湃OS 3.0 需要关闭振动和声音
+                enableVibration(false)
+                enableLights(false)
+            }
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(channel)
         }
     }
 
+    /**
+     * 创建前台服务通知 - 适配澎湃OS通知样式
+     */
     private fun createNotification(): Notification {
         val intent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(
@@ -68,19 +79,27 @@ class FloatingWindowService : Service() {
             PendingIntent.FLAG_IMMUTABLE
         )
 
-        return Notification.Builder(this, "floating_service")
-            .setContentTitle("鸿运历悬浮窗运行中")
-            .setContentText("点击打开主界面")
+        val builder = Notification.Builder(this, "floating_service")
+            .setContentTitle("鸿运历悬浮窗")
+            .setContentText("正在运行中，点击打开")
             .setSmallIcon(android.R.drawable.ic_menu_info_details)
             .setContentIntent(pendingIntent)
-            .build()
+            .setOngoing(true)
+            .setAutoCancel(false)
+
+        // 澎湃OS 3.0 适配：添加大图标和展开样式
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            builder.setStyle(Notification.BigTextStyle()
+                .bigText("鸿运历悬浮窗正在运行\n点击可返回主界面"))
+        }
+
+        return builder.build()
     }
 
     private fun createFloatingWindow() {
         val inflater = LayoutInflater.from(this)
         floatingView = inflater.inflate(R.layout.floating_window, null)
 
-        // 获取屏幕尺寸
         val display = windowManager.defaultDisplay
         val size = Point()
         display.getSize(size)
@@ -104,7 +123,6 @@ class FloatingWindowService : Service() {
             y = 100
         }
 
-        // 初始化视图
         tvTime = floatingView!!.findViewById(R.id.fw_time)
         tvDate = floatingView!!.findViewById(R.id.fw_date)
         tvLunar = floatingView!!.findViewById(R.id.fw_lunar)
@@ -115,17 +133,14 @@ class FloatingWindowService : Service() {
         val resizeHandle = floatingView!!.findViewById<View>(R.id.fw_resize_handle)
         val header = floatingView!!.findViewById<View>(R.id.fw_header)
 
-        // 关闭按钮
         btnClose.setOnClickListener {
             stopSelf()
         }
 
-        // 最小化/恢复按钮
         btnMinimize.setOnClickListener {
             toggleMinimize()
         }
 
-        // 拖动功能
         header.setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
@@ -145,7 +160,6 @@ class FloatingWindowService : Service() {
             }
         }
 
-        // 缩放功能
         resizeHandle.setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
@@ -207,18 +221,14 @@ class FloatingWindowService : Service() {
     private fun updateContent() {
         val now = LocalDateTime.now()
         
-        // 时间
         tvTime.text = String.format("%02d:%02d", now.hour, now.minute)
         
-        // 公历日期
         val weekDays = arrayOf("日", "一", "二", "三", "四", "五", "六")
         tvDate.text = "${now.monthValue}月${now.dayOfMonth}日 周${weekDays[now.dayOfWeek.value % 7]}"
         
-        // 农历
         val lunarDate = LunarCalendar.solarToLunar(now.year, now.monthValue, now.dayOfMonth)
         tvLunar.text = "${lunarDate.monthChinese}月${lunarDate.dayChinese}"
         
-        // 节气
         val today = java.time.LocalDate.now()
         val nextTerm = SolarTerm.getNextSolarTerm(today)
         val daysUntil = SolarTerm.getDaysUntilNextSolarTerm(today)
