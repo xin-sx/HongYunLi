@@ -1,4 +1,4 @@
-package com.hongyunli.calendar
+package com.rili.xin
 
 import android.app.Activity
 import android.content.Intent
@@ -29,7 +29,6 @@ class MainActivity : Activity() {
     private val handler = Handler(Looper.getMainLooper())
     private val weekDays = arrayOf("星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六")
 
-    // 修复1: 标记是否正在等待权限授权结果，防止 onResume 死循环
     private var waitingForPermissionResult = false
     private var hasStartedFloating = false
 
@@ -70,18 +69,11 @@ class MainActivity : Activity() {
         tvSystemInfo.text = info.toString()
     }
 
-    /**
-     * 修复1+2: 重写悬浮窗启动逻辑
-     * - 先检查悬浮窗权限
-     * - 再检查澎湃OS后台权限（不阻塞，只提示）
-     * - 使用状态标记防止 onResume 死循环
-     */
     private fun checkAndStartFloatingWindow() {
         if (hasStartedFloating) return
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (!HyperOSHelper.canDrawOverlays(this)) {
-                // 需要悬浮窗权限
                 waitingForPermissionResult = true
                 HyperOSHelper.requestOverlayPermission(this)
                 Toast.makeText(this, "请授予悬浮窗权限后返回", Toast.LENGTH_LONG).show()
@@ -89,7 +81,6 @@ class MainActivity : Activity() {
             }
         }
 
-        // 修复2: 澎湃OS后台权限只提示，不阻塞启动
         if (HyperOSHelper.isHyperOS3OrAbove()) {
             Toast.makeText(this, "建议在设置中开启后台弹出界面权限", Toast.LENGTH_SHORT).show()
         }
@@ -111,20 +102,14 @@ class MainActivity : Activity() {
         finish()
     }
 
-    /**
-     * 修复1: onResume 中使用状态标记防止死循环
-     * 只在从权限设置页面返回时检查一次
-     */
     override fun onResume() {
         super.onResume()
         if (waitingForPermissionResult) {
             waitingForPermissionResult = false
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 if (HyperOSHelper.canDrawOverlays(this)) {
-                    // 权限已授予，启动悬浮窗
                     startFloatingService()
                 } else {
-                    // 权限仍未授予，提示用户
                     Toast.makeText(this, "未获得悬浮窗权限，无法启动", Toast.LENGTH_SHORT).show()
                 }
             }

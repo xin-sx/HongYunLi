@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.hongyunli.calendar">
+    package="com.rili.xin">
 
     <!-- 网络权限 -->
     <uses-permission android:name="android.permission.INTERNET" />
@@ -40,7 +40,7 @@
             </intent-filter>
         </activity>
 
-        <!-- 修复6: specialUse前台服务必须声明property -->
+        <!-- specialUse前台服务必须声明property -->
         <service
             android:name=".FloatingWindowService"
             android:enabled="true"
@@ -51,7 +51,7 @@
                 android:value="calendar_floating_widget" />
         </service>
             
-        <!-- 修复7: BootReceiver 不需要 exported=true -->
+        <!-- BootReceiver 不需要 exported=true -->
         <receiver
             android:name=".BootReceiver"
             android:enabled="true"
